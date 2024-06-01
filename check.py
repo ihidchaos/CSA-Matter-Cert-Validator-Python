@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import requests
@@ -12,46 +13,61 @@ baseUrl = "https://on.dcl.csa-iot.org"
 
 hoorii_console_field_max_len = 32
 
-
-def has_trailing_spaces(s):
-    return s != s.rstrip()
+report_data = {}
 
 
-def len_exceeded(s):
-    return len(s) > hoorii_console_field_max_len
+def add_report_data(name, data, reason):
+    report_data[name] = {"数值": data, "问题": reason}
+
+
+def has_abnormal_spaces(string, name):
+    # 检查尾部是否含有空格
+    has_trailing_spaces = string != string.rstrip()
+
+    # 使用正则表达式检查是否包含两个及以上的连续空格
+    has_double_or_more_spaces = re.search(r'\s{2,}', string) is not None
+
+    # 返回两者的逻辑或结果
+    if has_trailing_spaces or has_double_or_more_spaces:
+        reason = f"有额外空格"
+        add_report_data(name, string, reason)
+        return True
+    return False
+
+
+def len_exceeded(string, name):
+    if len(string) > hoorii_console_field_max_len:
+        reason = f"长度超出{hoorii_console_field_max_len}"
+        add_report_data(name, string, reason)
+        return True
+    return False
 
 
 def check_vendor_info_valid(vendor_info_data: dict):
     vendor_name = vendor_info_data["vendorName"]
-
-    if has_trailing_spaces(vendor_name):
-        print(f"vendorName:{vendor_name}尾部有多余空格")
-
-    if len_exceeded(vendor_name):
-        print(f"vendorName:{vendor_name}长度超出{hoorii_console_field_max_len}")
+    vendor_name_invalid = has_abnormal_spaces(vendor_name, "vendorName") or len_exceeded(vendor_name, "vendorName")
+    return not vendor_name_invalid
 
 
 def check_models_valid(models_data: dict):
     product_name = models_data["productName"]
     product_label = models_data["productLabel"]
 
-    if has_trailing_spaces(product_name):
-        print(f"productName:{product_name}尾部有多余空格")
+    product_name_invalid = (has_abnormal_spaces(product_name, "productName") or
+                            len_exceeded(product_name, "productName"))
 
-    if len_exceeded(product_name):
-        print(f"productName:{product_name}长度超出{hoorii_console_field_max_len}")
-
-    if has_trailing_spaces(product_label):
-        print(f"productLabel:{product_label}尾部有多余空格")
-
-    if len_exceeded(product_label):
-        print(f"productLabel:{product_label}长度超出{hoorii_console_field_max_len}")
+    product_label_invalid = (has_abnormal_spaces(product_label, "productLabel") or
+                             len_exceeded(product_label, "productLabel"))
+    return not (product_name_invalid or product_label_invalid)
 
 
 def check_compliance_info_valid(compliance_info_data: dict, certificate_id):
     cd_certificate_id = compliance_info_data["cDCertificateId"]
     if cd_certificate_id != certificate_id:
-        print("CD ID不匹配")
+        reason = f"CD内ID{certificate_id}与DCL信息{cd_certificate_id}不匹配"
+        add_report_data(certificate_id, "certificateID", reason)
+        return False
+    return True
 
 
 if __name__ == "__main__":
@@ -78,9 +94,9 @@ if __name__ == "__main__":
         if response.status_code != requests.codes.ok:
             print(response.status_code)
             sys.exit(1)
-        data = response.json()
-        print(json.dumps(data, indent=4))
-        check_vendor_info_valid(data["vendorInfo"])
+        resp_data = response.json()
+        print(json.dumps(resp_data, indent=4))
+        check_vendor_info_valid(resp_data["vendorInfo"])
     except Exception as e:
         print(e)
         sys.exit(1)
@@ -90,9 +106,9 @@ if __name__ == "__main__":
             f"{baseUrl}/dcl/model/models/"
             f"{cd.vendor_id}/{cd.product_id_array[-1]}"
         )
-        data = response.json()
-        print(json.dumps(data, indent=4))
-        check_models_valid(data["model"])
+        resp_data = response.json()
+        print(json.dumps(resp_data, indent=4))
+        check_models_valid(resp_data["model"])
     except Exception as e:
         print(e)
         sys.exit(1)
@@ -102,13 +118,19 @@ if __name__ == "__main__":
             f"{baseUrl}/dcl/compliance/compliance-info/"
             f"{cd.vendor_id}/{cd.product_id_array[-1]}/{cd.version_number}/matter"
         )
-        data = response.json()
-        print(json.dumps(data, indent=4))
+        resp_data = response.json()
+        print(json.dumps(resp_data, indent=4))
         check_compliance_info_valid(
-            data["complianceInfo"], cd.certificate_id
+            resp_data["complianceInfo"], cd.certificate_id
         )
     except Exception as e:
         print(e)
         sys.exit(1)
 
-    sys.exit(0)
+    if report_data:
+        print("检测到以下问题:")
+        print(json.dumps(report_data, indent=4, ensure_ascii=False))
+        sys.exit(1)
+    else:
+        print("没有检测到问题")
+        sys.exit(0)
