@@ -1,3 +1,6 @@
 pyasn1~=0.6.0
 pyasn1_modules~=0.4.0
 requests~=2.32.2
+uvicorn~=0.30.0
+fastapi~=0.111.0
+python-multipart~=0.0.9
