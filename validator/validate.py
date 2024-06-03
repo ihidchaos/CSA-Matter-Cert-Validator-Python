@@ -77,26 +77,26 @@ def validate_cd(cd):
     return_data = {}
     fail_msg = []
 
-    return_data["cd_name"] = cd.certificate_id
+    return_data["cd_file_content"] = cd
     ok, msg, vendor_info = query.query_vendor_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
-        return_data["vendor_info"] = vendor_info
+        return_data["dcl_vendor_info"] = vendor_info
         check_vendor_info_valid(vendor_info)
 
     ok, msg, model_info = query.query_model_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
-        return_data["model_info"] = model_info
+        return_data["dcl_model_info"] = model_info
         check_models_valid(model_info)
 
     ok, msg, compliance_info = query.query_compliance_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
-        return_data["compliance_info"] = compliance_info
+        return_data["dcl_compliance_info"] = compliance_info
         check_compliance_info_valid(compliance_info, cd.certificate_id)
 
     return_data["validator"] = {
