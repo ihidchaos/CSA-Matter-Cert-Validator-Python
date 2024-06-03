@@ -16,7 +16,9 @@ report_data = {}
 
 
 def add_report_data(name, data, problem):
+    global report_data
     report_data[name] = {"数值": data, "问题": problem}
+    print(report_data)
 
 
 def has_abnormal_spaces(string, name):
@@ -70,6 +72,8 @@ def check_compliance_info_valid(compliance_info_data: dict, certificate_id):
 
 
 def validate_cd(cd):
+    global report_data
+    report_data = {}
     return_data = {}
     fail_msg = []
 
@@ -93,13 +97,13 @@ def validate_cd(cd):
         fail_msg.append(msg)
     else:
         return_data["compliance_info"] = compliance_info
-        check_compliance_info_valid(compliance_info, vendor_info)
+        check_compliance_info_valid(compliance_info, cd.certificate_id)
 
     return_data["validator"] = {
-        "valid": False if report_data else True,
-        "problem": report_data if report_data else None,
+        "is_valid": False if report_data else True,
+        "dcl_problem": fail_msg if fail_msg else None,
+        "cd_problem": report_data if report_data else None,
     }
-    print(return_data)
     return return_data
 
 

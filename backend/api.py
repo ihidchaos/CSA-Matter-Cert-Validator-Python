@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile
 
 from cd.parser import parse_cd
+from validator.validate import validate_cd as real_validate_cd
 
 app = FastAPI()
 
@@ -13,18 +14,14 @@ def get_status():
 @app.post("/validate_cd")
 async def validate_cd(file: UploadFile):
     try:
-        file_bytes = await file.read()
-        print(file_bytes)
-        data = file_bytes
-        cd = parse_cd(data)
-        print(cd)
+        cd = parse_cd(await file.read())
     except Exception as e:
-        return {"error111": str(e)}
+        return {"error": str(e)}
 
     if not cd:
         return {"error": "Failed to parse CD file"}
 
-    report_data = validate_cd(cd)
+    report_data = real_validate_cd(cd)
     return report_data
 
 

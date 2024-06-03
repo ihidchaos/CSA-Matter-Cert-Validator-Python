@@ -1,2 +1,2 @@
-baseUrl = "https://on.dcl.hoorii.org"
+baseUrl = "https://on.dcl.csa-iot.org"
 field_max_len = 32
