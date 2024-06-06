@@ -5,70 +5,13 @@ import sys
 
 sys.path.append(os.path.join(pathlib.Path(__file__).parents[1]))
 
+from cd.define import CertificationElements
+
 from chip.tlv import TLVReader
 
 from pyasn1.codec.der.decoder import decode as der_decoder
 from pyasn1.error import PyAsn1Error
 from pyasn1_modules import rfc5652
-
-"""
-参考自：
-1. https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/TC_DA_1_2.py
-2. https://github.com/project-chip/connectedhomeip/tree/master/src/controller/python/chip/tlv
-"""
-
-
-class CertificationElements:
-    def __init__(self):
-        self.format_version = 0
-        self.vendor_id = 0
-        self.product_id_array = []
-        self.product_ids_count = 0
-        self.device_type_id = 0
-        self.certificate_id = ""
-        self.security_level = 0
-        self.security_info = 0
-        self.version_number = 0
-        self.certification_type = 0
-        self.origin_vid = 0
-        self.origin_pid = 0
-        self.paa_authority_list = []
-        self.paa_authority_count = 0
-
-    def __str__(self):
-        product_ids_str = ", ".join(map(str, self.product_id_array))
-        authorized_paa_list_str = ", ".join(
-            str(paa.hex()).upper() for paa in self.paa_authority_list) if self.paa_authority_count > 0 else ""
-
-        output = (
-            f"Certification Elements:\n"
-            f"  Format Version: {self.format_version}\n"
-            f"  Vendor ID: {self.vendor_id}\n"
-            f"  Product IDs: {product_ids_str}\n"
-            f"  Product IDs Count: {self.product_ids_count}\n"
-            f"  Device Type ID: {self.device_type_id}\n"
-            f"  Certificate ID: {self.certificate_id}\n"
-            f"  Security Level: {self.security_level}\n"
-            f"  Security Information: {self.security_info}\n"
-            f"  Version Number: {self.version_number}\n"
-            f"  Certification Type: {self.certification_type}\n"
-        )
-
-        # 判断origin_vid和origin_pid是否为0，不为0时才添加进输出
-        if self.origin_vid != 0 or self.origin_pid != 0:
-            output += (
-                f"  DAC Origin Vendor ID: {self.origin_vid}\n"
-                f"  DAC Origin Product ID: {self.origin_pid}\n"
-            )
-
-            # 判断paa_authority_count是否为0，不为0时才添加进输出
-        if self.paa_authority_count > 0:
-            output += (
-                f"  Authorized PAA List: {authorized_paa_list_str}\n"
-                f"  Authorized PAA List Count: {self.paa_authority_count}\n"
-            )
-
-        return output
 
 
 def parse_cd(cd_file_data):

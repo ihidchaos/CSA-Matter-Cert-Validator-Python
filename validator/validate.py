@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import pathlib
+import pprint
 import re
 import sys
 
 sys.path.append(os.path.join(pathlib.Path(__file__).parents[1]))
 
-from cd import query
+from cd import query as cd_query
+from pki import query as pki_query
 from cd.parser import parse_cd
 from config.define import field_max_len
+from utils.string import add_colon_every_two_chars
+from cd.define import CertificationElements
 
 report_data = {}
 
@@ -18,7 +23,6 @@ report_data = {}
 def add_report_data(name, data, problem):
     global report_data
     report_data[name] = {"数值": data, "问题": problem}
-    print(report_data)
 
 
 def has_abnormal_spaces(string, name):
@@ -71,28 +75,44 @@ def check_compliance_info_valid(compliance_info_data: dict, certificate_id):
     return True
 
 
+def map_paa_with_name(cd: CertificationElements):
+    ok, msg, root_certificates = pki_query.query_root_certificates()
+    for paa in cd.paa_authority_list:
+        paa_str = paa.hex().upper()
+        subject_key_id = add_colon_every_two_chars(paa_str)
+        for cert in root_certificates:
+            if cert["subjectKeyId"] == subject_key_id:
+                subject = cert["subject"]
+                ok, msg, certificate = pki_query.query_certificates(subject, subject_key_id)
+                certs = certificate["certs"]
+                for cert in certs:
+                    if cert["subjectKeyId"] == subject_key_id:
+                        subject_text = cert["subjectAsText"]
+                        cd.append_paa_authority_list_name(subject_text)
+
+
 def validate_cd(cd):
     global report_data
     report_data = {}
     return_data = {}
     fail_msg = []
 
-    return_data["cd_file_content"] = cd
-    ok, msg, vendor_info = query.query_vendor_info(cd)
+    # return_data["cd_file_content"] = cd
+    ok, msg, vendor_info = cd_query.query_vendor_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
         return_data["dcl_vendor_info"] = vendor_info
         check_vendor_info_valid(vendor_info)
 
-    ok, msg, model_info = query.query_model_info(cd)
+    ok, msg, model_info = cd_query.query_model_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
         return_data["dcl_model_info"] = model_info
         check_models_valid(model_info)
 
-    ok, msg, compliance_info = query.query_compliance_info(cd)
+    ok, msg, compliance_info = cd_query.query_compliance_info(cd)
     if not ok:
         fail_msg.append(msg)
     else:
@@ -117,10 +137,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.cd_file, "rb") as f:
         file_bytes = f.read()
-        print(file_bytes)
     cd_data = parse_cd(file_bytes)
     if not cd_data:
         sys.exit(1)
-    print(cd_data)
-    validate_cd(cd_data)
+    map_paa_with_name(cd_data)
+    print(cd_data.to_ascii_table())
+    return_data = validate_cd(cd_data)
+    print(json.dumps(return_data, indent=4, ensure_ascii=False))
     sys.exit(0)
